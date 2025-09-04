@@ -1,0 +1,39 @@
+# Architecture & Tech Choices
+
+## Components
+
+- **Email Fetcher:** Uses IMAP to fetch emails from mailbox, stores in SQLite.
+- **Analyzer:** Extracts sender/subject/body/date, phone, summary; classifies sentiment, priority.
+- **RAG Pipeline:** Embeds KB (company FAQs) and retrieves relevant docs for each email; uses LLM prompt for drafting replies.
+- **Priority Queue:** Sorts emails by urgency, negative sentiment, age.
+- **Dashboard (React):** Lists emails, details, extracted info, reply editor, analytics.
+
+## Tech Stack
+
+- **Backend:** FastAPI (Python), SQLite, SQLAlchemy, FAISS for vector search.
+- **Frontend:** React for dashboard, components for list/details/analytics.
+- **LLM/Embeddings:** OpenAI GPT & embeddings (can swap for HuggingFace locally).
+- **Email:** IMAP via `imaplib` for universal mailbox support.
+
+## Choices & Limitations
+
+- SQLite for quick setup; switch to Postgres for scale.
+- FAISS for in-memory vector search (fast for hackathon).
+- Rule-based sentiment/priority for speed; add ML/AI model later.
+- Frontend uses simple React components for rapid prototyping.
+
+## Security & Ethics
+
+- No auto-send of replies; all replies reviewed by human.
+- Mask PII in analytics.
+- OpenAI API key required (not stored in repo).
+
+## Future Extensions
+
+- Add thread context, classification tags, admin templates.
+- Multi-lingual support.
+- Deploy on Vercel (frontend) + Railway/Heroku (backend) for live demo.
+
+## Diagram
+
+![Architecture](docs/architecture.png)
