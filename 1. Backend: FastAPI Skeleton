@@ -1,0 +1,63 @@
+from fastapi import FastAPI, Depends, HTTPException
+from sqlalchemy.orm import Session
+from .db import SessionLocal, engine, Base
+from .models import Email, KBDoc
+from .email_fetcher import fetch_emails
+from .analyzer import analyze_email
+from .rag import generate_reply
+
+app = FastAPI()
+
+Base.metadata.create_all(bind=engine)
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+@app.get("/emails/fetch")
+def fetch_and_store_emails(db: Session = Depends(get_db)):
+    emails = fetch_emails()
+    # Store emails in DB
+    for e in emails:
+        if not db.query(Email).filter_by(subject=e['subject'], sender=e['from']).first():
+            email_obj = Email(
+                sender=e['from'],
+                subject=e['subject'],
+                body=e['body'],
+                date_received=e['date']
+            )
+            db.add(email_obj)
+    db.commit()
+    return {"fetched": len(emails)}
+
+@app.get("/emails/filtered")
+def get_filtered_emails(db: Session = Depends(get_db)):
+    emails = db.query(Email).all()
+    filtered = [e for e in emails if any(kw in (e.subject or '').lower() for kw in ['support','query','request','help'])]
+    return [{"id": e.id, "sender": e.sender, "subject": e.subject, "body": e.body, "date": e.date_received} for e in filtered]
+
+@app.get("/emails/analyze")
+def analyze_all_emails(db: Session = Depends(get_db)):
+    emails = db.query(Email).filter(Email.sentiment == None).all()
+    for e in emails:
+        result = analyze_email(e.body)
+        e.sentiment = result['sentiment']
+        e.priority = result['priority']
+        e.extracted_phone = result['phone']
+        e.summary = result['summary']
+    db.commit()
+    return {"analyzed": len(emails)}
+
+@app.get("/emails/{email_id}/generate_reply")
+def generate_email_reply(email_id: int, db: Session = Depends(get_db)):
+    email = db.query(Email).filter_by(id=email_id).first()
+    if not email:
+        raise HTTPException(status_code=404, detail="Email not found")
+    kb_docs = db.query(KBDoc).all()
+    reply = generate_reply(email.body, kb_docs)
+    email.reply_draft = reply
+    db.commit()
+    return {"reply": reply}
