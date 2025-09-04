@@ -61,3 +61,113 @@ def generate_email_reply(email_id: int, db: Session = Depends(get_db)):
     email.reply_draft = reply
     db.commit()
     return {"reply": reply}
+
+
+from sqlalchemy import Column, Integer, String, DateTime, Text
+from .db import Base
+
+class Email(Base):
+    __tablename__ = 'emails'
+    id = Column(Integer, primary_key=True, index=True)
+    sender = Column(String)
+    subject = Column(String)
+    body = Column(Text)
+    date_received = Column(String)
+    sentiment = Column(String, nullable=True)
+    priority = Column(String, nullable=True)
+    extracted_phone = Column(String, nullable=True)
+    summary = Column(Text, nullable=True)
+    status = Column(String, default="pending")
+    reply_draft = Column(Text, nullable=True)
+
+class KBDoc(Base):
+    __tablename__ = 'kb_docs'
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String)
+    content = Column(Text)
+    embedding = Column(Text)  # Store as JSON string or separate FAISS index
+
+
+from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+
+SQLALCHEMY_DATABASE_URL = "sqlite:///./emails.db"
+
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+
+import imaplib, email
+from email.header import decode_header
+import os
+
+def fetch_emails():
+    imap_host = os.getenv("IMAP_HOST")
+    username = os.getenv("IMAP_USER")
+    password = os.getenv("IMAP_PASS")
+    mail = imaplib.IMAP4_SSL(imap_host)
+    mail.login(username, password)
+    mail.select("inbox")
+    status, data = mail.search(None, "ALL")
+    ids = data[0].split()
+    emails = []
+    for num in ids[-30:]:
+        status, raw = mail.fetch(num, "(RFC822)")
+        msg = email.message_from_bytes(raw[0][1])
+        subject = decode_header(msg["Subject"])[0][0]
+        sender = msg.get("From")
+        body = ""
+        if msg.is_multipart():
+            for part in msg.walk():
+                if part.get_content_type()=="text/plain":
+                    body = part.get_payload(decode=True).decode()
+        else:
+            body = msg.get_payload(decode=True).decode()
+        emails.append({"subject": str(subject), "from": sender, "body": body, "date": msg.get("Date")})
+    return emails
+
+
+import re
+
+def analyze_email(text):
+    # Sentiment (dummy rule)
+    sentiment = "negative" if any(w in text.lower() for w in ["angry","not happy","bad","problem","failed"]) else "neutral"
+    # Phone extraction
+    phone_match = re.search(r"(\+?\d{10,12})", text)
+    # Summary (first 100 chars)
+    summary = text[:100]
+    # Priority
+    priority = "Urgent" if any(w in text.lower() for w in ["urgent","immediately","critical","asap","cannot access","down","payment failed"]) or sentiment=="negative" else "Not urgent"
+    return {
+        "sentiment": sentiment,
+        "priority": priority,
+        "phone": phone_match.group(0) if phone_match else "",
+        "summary": summary
+    }
+# Minimal RAG pipeline (stub)
+def generate_reply(email_body, kb_docs):
+    kb_snippets = "\n".join([f"{doc.title}: {doc.content[:80]}..." for doc in kb_docs[:3]])
+    prompt = f"""
+You are a professional customer support agent. Use the following company knowledge and the email content to draft a polite, concise, and empathetic reply. If the customer is frustrated, acknowledge feelings and propose next steps.
+
+Company knowledge:
+{kb_snippets}
+
+Customer email:
+{email_body}
+
+Draft reply:
+"""
+    # For demo, just return the prompt (replace with OpenAI call)
+    return prompt
+
+fastapi
+uvicorn
+sqlalchemy
+openai
+faiss-cpu
+sentence-transformers
