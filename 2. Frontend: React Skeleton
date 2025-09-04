@@ -1,0 +1,108 @@
+import React, { useEffect, useState } from 'react';
+import EmailList from './components/EmailList';
+import EmailDetails from './components/EmailDetails';
+import AnalyticsPanel from './components/AnalyticsPanel';
+
+function App() {
+  const [emails, setEmails] = useState([]);
+  const [selectedEmail, setSelectedEmail] = useState(null);
+
+  useEffect(() => {
+    fetch('/emails/filtered')
+      .then(res => res.json())
+      .then(data => setEmails(data));
+  }, []);
+
+  return (
+    <div style={{display:"flex"}}>
+      <div style={{width:"20%"}}>
+        <EmailList emails={emails} onSelect={setSelectedEmail} />
+      </div>
+      <div style={{width:"60%"}}>
+        {selectedEmail && <EmailDetails email={selectedEmail} />}
+      </div>
+      <div style={{width:"20%"}}>
+        <AnalyticsPanel emails={emails} />
+      </div>
+    </div>
+  );
+}
+
+export default App;
+
+
+
+
+import React from 'react';
+
+function EmailList({ emails, onSelect }) {
+  return (
+    <div>
+      <h2>Emails</h2>
+      <ul>
+        {emails.map(e => (
+          <li key={e.id} onClick={() => onSelect(e)}>
+            <strong>{e.subject}</strong> <br />
+            <span>{e.sender}</span> <br />
+            <span>{e.date}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export default EmailList;
+
+import React, { useState } from 'react';
+
+function EmailDetails({ email }) {
+  const [reply, setReply] = useState(email.reply_draft || "");
+
+  const handleGenerateReply = () => {
+    fetch(`/emails/${email.id}/generate_reply`)
+      .then(res => res.json())
+      .then(data => setReply(data.reply));
+  };
+
+  return (
+    <div>
+      <h2>{email.subject}</h2>
+      <p><b>From:</b> {email.sender}</p>
+      <p><b>Date:</b> {email.date}</p>
+      <p><b>Body:</b> {email.body}</p>
+      <h3>Reply Draft</h3>
+      <textarea value={reply} onChange={e => setReply(e.target.value)} rows={8} style={{width:'100%'}} />
+      <button onClick={handleGenerateReply}>Generate Reply</button>
+      <button>Send (Simulate)</button>
+    </div>
+  );
+}
+
+export default EmailDetails;
+
+import React from 'react';
+
+function AnalyticsPanel({ emails }) {
+  const urgentCount = emails.filter(e => e.priority === "Urgent").length;
+  const pendingCount = emails.filter(e => (e.status || "pending") === "pending").length;
+  return (
+    <div>
+      <h2>Analytics</h2>
+      <p>Total Emails: {emails.length}</p>
+      <p>Urgent: {urgentCount}</p>
+      <p>Pending: {pendingCount}</p>
+    </div>
+  );
+}
+
+export default AnalyticsPanel;{
+  "name": "dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "react-scripts": "5.0.1"
+  }
+}
