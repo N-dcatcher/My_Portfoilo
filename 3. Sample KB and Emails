@@ -1,0 +1,17 @@
+Refund policy: refunds processed within 7 days to the original payment method.
+Password reset: click 'Forgot Password' on the login page and follow instructions.
+Account locked: contact support with your registered email and phone number.
+[
+  {
+    "subject": "Cannot access my account!",
+    "from": "user1@example.com",
+    "body": "Hello, I am unable to login since yesterday. The system says my password is incorrect. Please help ASAP.",
+    "date": "2025-09-03 10:00:00"
+  },
+  {
+    "subject": "Refund request for failed payment",
+    "from": "user2@example.com",
+    "body": "Hi, my payment failed but the amount was deducted. Kindly refund immediately. My phone: +1234567890.",
+    "date": "2025-09-03 09:30:00"
+  }
+]
